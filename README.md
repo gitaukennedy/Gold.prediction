@@ -1,4 +1,4 @@
-Gold prediction — 30-minute MVP
+Gold prediction -25-minute MVP
 
 Overview
 
