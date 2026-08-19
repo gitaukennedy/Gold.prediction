@@ -2,7 +2,7 @@ Gold prediction -25-minute MVP
 
 Overview
 
-This repository contains a 30-minute MVP for live gold prediction and trading. It fetches minute-level gold data from yfinance, trains a lightweight RandomForest to predict short-term direction, and (optionally) places trades via Alpaca (paper/live) when the model signals a buy.
+This repository contains a 30-minute MVP for live gold prediction and trading. It fetches minute-level gold data from yfinance, trains a lightweight RandomForest to predict short-term direction, and (optionally) places trades via Alpaca (paper/live) when the model signals a buy. "am still working on the sell signal"
 
 Structure
 
