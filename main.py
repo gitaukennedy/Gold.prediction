@@ -83,7 +83,9 @@ def main():
         'stop_loss': round(latest_price * (1 - stop_loss_pct), 2),
         'take_profit': round(latest_price * (1 + take_profit_pct), 2),
     }])
+    prediction_table.to_csv('data/latest_prediction.csv', index=False)
     print('\n=== TRADE PREDICTION TABLE ===')
+    print('Saved to data/latest_prediction.csv')
     print(prediction_table.to_string(index=False))
     print('\n=== PREDICTIONS ===')
     print(f'Buy probability:  {buy_probability:.3f} (threshold: {buy_threshold:.3f})')

@@ -46,6 +46,7 @@ The default market-data ticker is `GC=F` (COMEX gold futures). The default order
 
 - `data/latest.csv`: Latest downloaded history. Replaced on each successful run and ignored only if local Git rules are extended to ignore it.
 - `data/latest_20.csv`: Last 20 downloaded rows for quick inspection.
+- `data/latest_prediction.csv`: The most recent prediction table, including timeframe, probabilities, action, stop-loss, and take-profit. It is replaced on each run.
 - `models/README.md`: Explains that trained model binaries are generated at runtime.
 - `models/rf.pkl`: Generated Random Forest model. It is ignored by Git and recreated on each run.
 - `.env`: Local secrets and settings copied from `config.example.env`; ignored by Git and intentionally not documented with its values.
@@ -105,7 +106,7 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 4. Trains a new model using up to 500 recent samples, keeping the newest 20% aside.
 5. Measures historical accuracy and the win rate of the model's historical buy predictions on that unseen portion.
 6. Predicts the latest available feature row, which was excluded from training.
-7. Prints buy and sell probabilities plus the historical win-rate metrics in a trade prediction table.
+7. Saves and prints buy and sell probabilities plus the historical win-rate metrics in `data/latest_prediction.csv`.
 8. If buy probability and historical predicted-buy win rate pass their thresholds, and `ENABLE_TRADING=true`, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY` with attached stop-loss and take-profit exits. Otherwise it does not submit an order.
 
 The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. The program now refuses duplicate buys, attaches a bracket stop loss and take profit to each accepted buy, and closes an existing position on a validated sell signal. A high probability is not a guarantee of profit. The bracket exits are based on the latest quote before the market order fills, so actual fill prices can differ.
