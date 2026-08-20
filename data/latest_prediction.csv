@@ -1,2 +1,2 @@
 bar_time,data_timeframe,prediction_horizon,data_ticker,trade_symbol,last_close,buy_probability,sell_probability,buy_win_rate,action,stop_loss,take_profit
-2026-08-20 16:03:00-04:00,1m,next 1m bar,GC=F,GLD,4583.3,52.0%,48.0%,54.5%,HOLD,4537.47,4674.97
+2026-08-20 16:14:00-04:00,1m,next 1m bar,GC=F,GLD,4578.9,56.0%,44.0%,58.7%,BUY BLOCKED,4533.11,4670.48
