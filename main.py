@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from sklearn.metrics import accuracy_score
 from src.fetch_data import fetch_history
 from src.features import make_features
 from src.model import train_and_save, load_model
@@ -19,8 +20,31 @@ def main():
     if len(X) < 100:
         print('Not enough data to train. Need at least 100 rows of features.')
         return
-    # Train on recent samples for speed
-    clf = train_and_save(X.tail(500), y.tail(500))
+    # Keep the newest row completely out of training so its prediction is unseen.
+    samples = min(len(X), 500)
+    X_recent = X.tail(samples)
+    y_recent = y.tail(samples)
+    validation_size = max(20, int(len(X_recent) * 0.2))
+    if len(X_recent) <= validation_size:
+        print('Not enough data for a separate validation set.')
+        return
+    X_train = X_recent.iloc[:-validation_size]
+    y_train = y_recent.iloc[:-validation_size]
+    X_validation = X_recent.iloc[-validation_size:-1]
+    y_validation = y_recent.iloc[-validation_size:-1]
+    clf = train_and_save(X_train, y_train)
+    validation_predictions = clf.predict(X_validation)
+    validation_win_rate = accuracy_score(y_validation, validation_predictions)
+    predicted_buys = validation_predictions == 1
+    if predicted_buys.any():
+        buy_win_rate = accuracy_score(y_validation[predicted_buys], validation_predictions[predicted_buys])
+    else:
+        buy_win_rate = 0.0
+    print('\n=== VALIDATION ===')
+    print(f'Historical validation accuracy: {validation_win_rate:.1%} '
+          f'({len(y_validation)} unseen predictions)')
+    print(f'Predicted-buy win rate: {buy_win_rate:.1%} '
+          f'({predicted_buys.sum()} historical buy signals)')
     model = load_model()
     latest = X.tail(1)
     probabilities = model.predict_proba(latest)[0]
@@ -29,10 +53,12 @@ def main():
     sell_probability = class_probabilities.get(0, 0.0)
     buy_threshold = float(os.getenv('BUY_THRESHOLD', '0.55'))
     sell_threshold = float(os.getenv('SELL_THRESHOLD', '0.55'))
+    minimum_win_rate = float(os.getenv('MINIMUM_WIN_RATE', '0.52'))
     print('\n=== PREDICTIONS ===')
     print(f'Buy probability:  {buy_probability:.3f} (threshold: {buy_threshold:.3f})')
     print(f'Sell probability: {sell_probability:.3f} (threshold: {sell_threshold:.3f})')
-    if buy_probability > buy_threshold:
+    print(f'Minimum validation win rate: {minimum_win_rate:.1%}')
+    if buy_probability > buy_threshold and buy_win_rate >= minimum_win_rate:
         qty = int(os.getenv('TRADE_QTY', '1'))
         symbol = os.getenv('TRADE_SYMBOL', 'GLD')
         print(f'Buy signal: probability is above {buy_threshold:.3f}; placing buy for {symbol} qty={qty} (paper)')
@@ -41,6 +67,8 @@ def main():
             print('Order response:', resp)
         except Exception as e:
             print('Order failed:', e)
+    elif buy_probability > buy_threshold:
+        print('Buy signal rejected: recent predicted-buy win rate is too low.')
     elif sell_probability > sell_threshold:
         print('Sell signal: probability is above the sell threshold. No sell order placed.')
     else:

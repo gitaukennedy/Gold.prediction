@@ -88,6 +88,7 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 | `TRADE_SYMBOL` | `GLD` | Alpaca order symbol |
 | `BUY_THRESHOLD` | `0.55` | Buy probability must be greater than this value |
 | `SELL_THRESHOLD` | `0.55` | Sell probability threshold; currently report-only |
+| `MINIMUM_WIN_RATE` | `0.52` | Minimum recent predicted-buy win rate required before a buy |
 | `TRADE_QTY` | `1` | Whole-unit quantity for the buy order |
 
 ## What one run does
@@ -95,12 +96,13 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 1. Downloads two days of one-minute bars for `TICKER`.
 2. Saves the raw data locally.
 3. Drops rows made incomplete by lag and moving-average calculations.
-4. Trains a new model using up to 500 recent samples.
-5. Predicts the latest available feature row.
-6. Prints buy and sell probabilities.
-7. If buy probability is above the threshold, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY`. Otherwise it does not submit an order.
+4. Trains a new model using up to 500 recent samples, keeping the newest 20% aside.
+5. Measures historical accuracy and the win rate of the model's historical buy predictions on that unseen portion.
+6. Predicts the latest available feature row, which was excluded from training.
+7. Prints buy and sell probabilities plus the historical win-rate metrics.
+8. If buy probability and historical predicted-buy win rate pass their thresholds, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY`. Otherwise it does not submit an order.
 
-There is no backtest, validation split, risk-management layer, duplicate-order prevention, existing-position check, or automatic exit strategy. A high probability is not a guarantee of profit.
+The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. There is still no spread/slippage model, risk-management layer, duplicate-order prevention, existing-position check, or automatic exit strategy. A high probability is not a guarantee of profit. The current program can buy but does not automatically sell or close a position, so a losing position can remain open.
 
 ## Trading safely
 
