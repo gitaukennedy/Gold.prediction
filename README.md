@@ -116,7 +116,7 @@ The validation metric is a small recent holdout, not a full backtest, and cannot
 
 ## Trading safely
 
-I cannot place a financial trade for you. The project can submit an order through your Alpaca account when you run it, so verify the following before running it:
+ The project can submit an order through your Alpaca account when you run it, so verify the following before running it:
 
 1. Use an Alpaca paper account and paper API keys.
 2. Confirm `ALPACA_BASE_URL` is exactly the paper endpoint.
