@@ -4,7 +4,7 @@ from sklearn.metrics import accuracy_score
 from src.fetch_data import fetch_history
 from src.features import make_features
 from src.model import train_and_save, load_model
-from src.trade import place_order
+from src.trade import close_position, get_position, place_bracket_buy
 
 load_dotenv()
 
@@ -54,23 +54,39 @@ def main():
     buy_threshold = float(os.getenv('BUY_THRESHOLD', '0.55'))
     sell_threshold = float(os.getenv('SELL_THRESHOLD', '0.55'))
     minimum_win_rate = float(os.getenv('MINIMUM_WIN_RATE', '0.52'))
+    trading_enabled = os.getenv('ENABLE_TRADING', 'false').lower() == 'true'
+    symbol = os.getenv('TRADE_SYMBOL', 'GLD')
     print('\n=== PREDICTIONS ===')
     print(f'Buy probability:  {buy_probability:.3f} (threshold: {buy_threshold:.3f})')
     print(f'Sell probability: {sell_probability:.3f} (threshold: {sell_threshold:.3f})')
     print(f'Minimum validation win rate: {minimum_win_rate:.1%}')
+    print(f'Trading enabled: {trading_enabled}')
     if buy_probability > buy_threshold and buy_win_rate >= minimum_win_rate:
         qty = int(os.getenv('TRADE_QTY', '1'))
-        symbol = os.getenv('TRADE_SYMBOL', 'GLD')
-        print(f'Buy signal: probability is above {buy_threshold:.3f}; placing buy for {symbol} qty={qty} (paper)')
+        print(f'Buy signal for {symbol} qty={qty}')
+        if not trading_enabled:
+            print('Order blocked: set ENABLE_TRADING=true after reviewing the signal.')
+            return
         try:
-            resp = place_order(symbol, qty, side='buy')
+            resp = place_bracket_buy(symbol, qty)
             print('Order response:', resp)
         except Exception as e:
             print('Order failed:', e)
     elif buy_probability > buy_threshold:
         print('Buy signal rejected: recent predicted-buy win rate is too low.')
     elif sell_probability > sell_threshold:
-        print('Sell signal: probability is above the sell threshold. No sell order placed.')
+        print(f'Sell signal for {symbol}.')
+        if not trading_enabled:
+            print('Order blocked: set ENABLE_TRADING=true after reviewing the signal.')
+            return
+        try:
+            if get_position(symbol) is None:
+                print('No open position; no sell order placed.')
+            else:
+                print('Closing the existing position; attached bracket exits will be cancelled by Alpaca.')
+                print('Close response:', close_position(symbol))
+        except Exception as e:
+            print('Close failed:', e)
     else:
         print('No buy or sell signal passed its threshold.')
 

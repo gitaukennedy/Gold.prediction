@@ -90,6 +90,10 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 | `SELL_THRESHOLD` | `0.55` | Sell probability threshold; currently report-only |
 | `MINIMUM_WIN_RATE` | `0.52` | Minimum recent predicted-buy win rate required before a buy |
 | `TRADE_QTY` | `1` | Whole-unit quantity for the buy order |
+| `TRADE_SYMBOL` | `GLD` | Alpaca order symbol |
+| `ENABLE_TRADING` | `false` | Must be `true` before any order can be submitted |
+| `STOP_LOSS_PCT` | `0.01` | Bracket stop loss below the estimated entry price |
+| `TAKE_PROFIT_PCT` | `0.02` | Bracket take profit above the estimated entry price |
 
 ## What one run does
 
@@ -100,9 +104,9 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 5. Measures historical accuracy and the win rate of the model's historical buy predictions on that unseen portion.
 6. Predicts the latest available feature row, which was excluded from training.
 7. Prints buy and sell probabilities plus the historical win-rate metrics.
-8. If buy probability and historical predicted-buy win rate pass their thresholds, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY`. Otherwise it does not submit an order.
+8. If buy probability and historical predicted-buy win rate pass their thresholds, and `ENABLE_TRADING=true`, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY` with attached stop-loss and take-profit exits. Otherwise it does not submit an order.
 
-The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. There is still no spread/slippage model, risk-management layer, duplicate-order prevention, existing-position check, or automatic exit strategy. A high probability is not a guarantee of profit. The current program can buy but does not automatically sell or close a position, so a losing position can remain open.
+The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. The program now refuses duplicate buys, attaches a bracket stop loss and take profit to each accepted buy, and closes an existing position on a validated sell signal. A high probability is not a guarantee of profit. The bracket exits are based on the latest quote before the market order fills, so actual fill prices can differ.
 
 ## Trading safely
 
@@ -110,9 +114,10 @@ I cannot place a financial trade for you. The project can submit an order throug
 
 1. Use an Alpaca paper account and paper API keys.
 2. Confirm `ALPACA_BASE_URL` is exactly the paper endpoint.
-3. Confirm `TRADE_SYMBOL=GLD` is the instrument you intend to trade, rather than the futures data ticker `GC=F`.
-4. Keep `TRADE_QTY` small and inspect the printed signal.
-5. Check the Alpaca dashboard after any submitted order.
+3. Keep `ENABLE_TRADING=false` while reviewing signals.
+4. Confirm `TRADE_SYMBOL=GLD` is the instrument you intend to trade, rather than the futures data ticker `GC=F`.
+5. Review `STOP_LOSS_PCT`, `TAKE_PROFIT_PCT`, and `TRADE_QTY` before enabling paper orders.
+6. Check the Alpaca dashboard after any submitted order.
 
 Do not put real credentials in the repository, shell history, chat, or `config.example.env`. Switching the base URL to a live endpoint can cause real market orders and should only be done after independent testing and review.
 
