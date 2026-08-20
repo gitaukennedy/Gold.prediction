@@ -85,6 +85,8 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 | `ALPACA_SECRET_KEY` / `APCA_API_SECRET_KEY` | none | Alpaca secret |
 | `ALPACA_BASE_URL` / `APCA_API_BASE_URL` | paper URL | Paper or live Alpaca endpoint |
 | `TICKER` | `GC=F` | yfinance data ticker |
+| `DATA_INTERVAL` | `1m` | Candle timeframe used for features and prediction; current default is one minute |
+| `DATA_PERIOD` | `2d` | History downloaded for training |
 | `TRADE_SYMBOL` | `GLD` | Alpaca order symbol |
 | `BUY_THRESHOLD` | `0.55` | Buy probability must be greater than this value |
 | `SELL_THRESHOLD` | `0.55` | Sell probability threshold; currently report-only |
@@ -97,13 +99,13 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 
 ## What one run does
 
-1. Downloads two days of one-minute bars for `TICKER`.
+1. Downloads two days of one-minute bars for `TICKER` by default. This is a 1-minute strategy, not a 5-minute or 15-minute strategy. Set `DATA_INTERVAL=5m` or `DATA_INTERVAL=15m` to experiment with another candle size.
 2. Saves the raw data locally.
 3. Drops rows made incomplete by lag and moving-average calculations.
 4. Trains a new model using up to 500 recent samples, keeping the newest 20% aside.
 5. Measures historical accuracy and the win rate of the model's historical buy predictions on that unseen portion.
 6. Predicts the latest available feature row, which was excluded from training.
-7. Prints buy and sell probabilities plus the historical win-rate metrics.
+7. Prints buy and sell probabilities plus the historical win-rate metrics in a trade prediction table.
 8. If buy probability and historical predicted-buy win rate pass their thresholds, and `ENABLE_TRADING=true`, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY` with attached stop-loss and take-profit exits. Otherwise it does not submit an order.
 
 The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. The program now refuses duplicate buys, attaches a bracket stop loss and take profit to each accepted buy, and closes an existing position on a validated sell signal. A high probability is not a guarantee of profit. The bracket exits are based on the latest quote before the market order fills, so actual fill prices can differ.

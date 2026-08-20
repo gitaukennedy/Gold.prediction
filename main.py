@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+import pandas as pd
 from sklearn.metrics import accuracy_score
 from src.fetch_data import fetch_history
 from src.features import make_features
@@ -11,8 +12,10 @@ load_dotenv()
 
 def main():
     ticker = os.getenv('TICKER', 'GC=F')
-    print(f'Fetching data for {ticker}...')
-    df = fetch_history(ticker=ticker, period='2d', interval='1m')
+    interval = os.getenv('DATA_INTERVAL', '1m')
+    period = os.getenv('DATA_PERIOD', '2d')
+    print(f'Fetching {interval} data for {ticker}...')
+    df = fetch_history(ticker=ticker, period=period, interval=interval)
     print('\n=== LATEST DATA (20 ROWS) ===')
     print(df.tail(20).to_string(index=False))
     print('Saved to data/latest_20.csv')
@@ -56,6 +59,32 @@ def main():
     minimum_win_rate = float(os.getenv('MINIMUM_WIN_RATE', '0.52'))
     trading_enabled = os.getenv('ENABLE_TRADING', 'false').lower() == 'true'
     symbol = os.getenv('TRADE_SYMBOL', 'GLD')
+    stop_loss_pct = float(os.getenv('STOP_LOSS_PCT', '0.01'))
+    take_profit_pct = float(os.getenv('TAKE_PROFIT_PCT', '0.02'))
+    latest_price = float(df['Close'].iloc[-1])
+    action = 'HOLD'
+    if buy_probability > buy_threshold and buy_win_rate >= minimum_win_rate:
+        action = 'BUY' if trading_enabled else 'BUY BLOCKED'
+    elif buy_probability > buy_threshold:
+        action = 'BUY REJECTED'
+    elif sell_probability > sell_threshold:
+        action = 'SELL' if trading_enabled else 'SELL BLOCKED'
+    prediction_table = pd.DataFrame([{
+        'bar_time': df.index[-1],
+        'data_timeframe': interval,
+        'prediction_horizon': f'next {interval} bar',
+        'data_ticker': ticker,
+        'trade_symbol': symbol,
+        'last_close': round(latest_price, 2),
+        'buy_probability': f'{buy_probability:.1%}',
+        'sell_probability': f'{sell_probability:.1%}',
+        'buy_win_rate': f'{buy_win_rate:.1%}',
+        'action': action,
+        'stop_loss': round(latest_price * (1 - stop_loss_pct), 2),
+        'take_profit': round(latest_price * (1 + take_profit_pct), 2),
+    }])
+    print('\n=== TRADE PREDICTION TABLE ===')
+    print(prediction_table.to_string(index=False))
     print('\n=== PREDICTIONS ===')
     print(f'Buy probability:  {buy_probability:.3f} (threshold: {buy_threshold:.3f})')
     print(f'Sell probability: {sell_probability:.3f} (threshold: {sell_threshold:.3f})')
