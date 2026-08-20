@@ -2,11 +2,10 @@
 
 This project fetches recent one-minute gold-market data, creates short-term price features, trains a small Random Forest classifier, reports the probability that the next bar will rise or fall, and can submit an Alpaca order when the buy probability passes a configured threshold.
 
-<<<<<<< HEAD
-It is a proof of concept, not a validated trading strategy. The model does not account for spread, slippage, commissions, market hours, position size, portfolio exposure, stop losses, or drawdown. Use paper trading first and review every signal yourself.
-=======
-This repository contains a 30-minute MVP for live gold prediction and trading. It fetches minute-level gold data from yfinance, trains a lightweight RandomForest to predict short-term direction, and (optionally) places trades via Alpaca (paper/live) when the model signals a buy. "am still working on the sell signal"
->>>>>>> a7083ba9291aa1b2e2c9a0615e6176d9b294117e
+
+# It is a proof of concept, not a validated trading strategy. The model does not account for spread, slippage, commissions, market hours, position size, portfolio exposure, stop losses, or drawdown. Use paper trading first and review every signal yourself. naitengeneza bado , 
+
+This repository contains a 30-minute MVP for live gold prediction and trading. It fetches minute-level gold data from yfinance, trains a lightweight RandomForest to predict short-term direction, and (optionally) places trades via Alpaca (paper/live) when the model signals a buy. "am still working on the sell signal
 
 ## Project flow
 
