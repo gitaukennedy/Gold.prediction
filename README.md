@@ -92,6 +92,7 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 | `TICKER` | `GC=F` | yfinance data ticker |
 | `DATA_INTERVAL` | `1m` | Candle timeframe used for features and prediction; current default is one minute |
 | `DATA_PERIOD` | `2d` | History downloaded for training |
+| `MARKET_DATA_MAX_AGE_MINUTES` | `30` | Maximum age of the newest downloaded bar before prediction and trading are skipped |
 | `TRADE_SYMBOL` | `GLD` | Alpaca order symbol |
 | `BUY_THRESHOLD` | `0.55` | Buy probability must be greater than this value |
 | `SELL_THRESHOLD` | `0.55` | Sell probability threshold; currently report-only |
@@ -104,7 +105,7 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 
 ## What one run does
 
-1. Downloads two days of one-minute bars for `TICKER` by default. This is a 1-minute strategy, not a 5-minute or 15-minute strategy. Set `DATA_INTERVAL=5m` or `DATA_INTERVAL=15m` to experiment with another candle size.
+1. Downloads two days of one-minute bars for `TICKER` by default. This is a 1-minute strategy, not a 5-minute or 15-minute strategy. Set `DATA_INTERVAL=5m` or `DATA_INTERVAL=15m` to experiment with another candle size. If the newest bar is older than `MARKET_DATA_MAX_AGE_MINUTES`, the run stops without creating a prediction or order; this naturally avoids stale weekend and holiday signals.
 2. Saves the raw data locally.
 3. Drops rows made incomplete by lag and moving-average calculations.
 4. Trains a new model using up to 500 recent samples, keeping the newest 20% aside.

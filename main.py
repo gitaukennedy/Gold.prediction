@@ -16,6 +16,23 @@ def main():
     period = os.getenv('DATA_PERIOD', '2d')
     print(f'Fetching {interval} data for {ticker}...')
     df = fetch_history(ticker=ticker, period=period, interval=interval)
+    latest_bar_time = pd.Timestamp(df.index[-1])
+    if latest_bar_time.tzinfo is None:
+        latest_bar_time = latest_bar_time.tz_localize('UTC')
+    else:
+        latest_bar_time = latest_bar_time.tz_convert('UTC')
+    interval_unit = interval[-1].lower()
+    interval_value = float(interval[:-1])
+    interval_minutes = interval_value * {'m': 1, 'h': 60, 'd': 1440}[interval_unit]
+    max_age_minutes = float(os.getenv(
+        'MARKET_DATA_MAX_AGE_MINUTES',
+        str(max(30, interval_minutes * 3)),
+    ))
+    data_age_minutes = (pd.Timestamp.now(tz='UTC') - latest_bar_time).total_seconds() / 60
+    if data_age_minutes > max_age_minutes:
+        print(f'Latest market bar is {data_age_minutes:.1f} minutes old; '
+              'no current prediction or order created.')
+        return
     print('\n=== LATEST DATA (20 ROWS) ===')
     print(df.tail(20).to_string(index=False))
     print('Saved to data/latest_20.csv')

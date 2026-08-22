@@ -20,7 +20,7 @@ def get_client():
     if TradingClient is None:
         raise RuntimeError('alpaca-py not installed or failed to import')
     paper = 'paper-api.alpaca.markets' in base
-    return TradingClient(api_key=key, secret_key=secret, paper=paper)
+    return TradingClient(api_key=key, secret_key=secret, paper=paper, url_override=base)
 
 
 def get_position(symbol: str):
