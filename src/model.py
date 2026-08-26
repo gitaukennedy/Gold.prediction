@@ -2,7 +2,7 @@
 import os
 import joblib
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 
 try:
@@ -44,9 +44,14 @@ def _up_probability(model, X):
         return np.zeros(len(X))
 
 
-def _xgboost():
+def _second_stage_model():
     if XGBClassifier is None:
-        raise RuntimeError('xgboost is required. Run: python -m pip install -r requirements.txt')
+        # Keeps paper-trading validation usable if the optional Windows wheel
+        # has not yet installed. XGBoost is still selected automatically when
+        # its package is available.
+        return HistGradientBoostingClassifier(max_iter=200, max_leaf_nodes=15,
+                                              learning_rate=0.04, l2_regularization=1.0,
+                                              random_state=42)
     return XGBClassifier(n_estimators=200, max_depth=3, learning_rate=0.04,
                          subsample=0.85, colsample_bytree=0.85, min_child_weight=4,
                          eval_metric='logloss', random_state=42, n_jobs=1)
@@ -68,7 +73,7 @@ def train_and_save(X, y, model_path: str = 'models/stacked_rf_xgb.pkl'):
         raise ValueError('The stage-two training window needs both up and down examples.')
     stage_two_X = X.loc[valid].copy()
     stage_two_X['rf_up_probability'] = oof[valid]
-    xgb = _xgboost()
+    xgb = _second_stage_model()
     xgb.fit(stage_two_X, y.loc[valid])
     rf = _random_forest()
     rf.fit(X, y)

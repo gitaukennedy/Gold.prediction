@@ -105,6 +105,10 @@ out-of-fold up probabilities; XGBoost receives those probabilities as one
 additional feature alongside returns, trend, ATR, volatility, range position,
 and volume features. Out-of-fold construction is important: the second-stage
 model does not receive a Random Forest prediction trained on the same target.
+XGBoost is the preferred second-stage model. If its optional Windows wheel has
+not yet installed, the same pipeline uses scikit-learn's histogram gradient
+boosting as a clearly local fallback; installing XGBoost switches back to it
+automatically.
 
 Each run also estimates a three-state (down/neutral/up) Markov transition
 matrix from recent returns and samples 3,000 Monte Carlo paths over
