@@ -44,13 +44,14 @@ def get_latest_price(symbol: str) -> float:
     return float(price)
 
 
-def place_bracket_buy(symbol: str, qty: int = 1):
+def place_bracket_buy(symbol: str, qty: int = 1, stop_distance_pct: float = None,
+                      target_distance_pct: float = None):
     if get_position(symbol) is not None:
         raise RuntimeError(f'Position already exists for {symbol}; buy skipped')
-    stop_loss_pct = float(os.getenv('STOP_LOSS_PCT', '0.01'))
-    take_profit_pct = float(os.getenv('TAKE_PROFIT_PCT', '0.02'))
+    stop_loss_pct = stop_distance_pct or float(os.getenv('STOP_LOSS_PCT', '0.01'))
+    take_profit_pct = target_distance_pct or float(os.getenv('TAKE_PROFIT_PCT', '0.02'))
     if not 0 < stop_loss_pct < 1 or not 0 < take_profit_pct < 1:
-        raise ValueError('STOP_LOSS_PCT and TAKE_PROFIT_PCT must be between 0 and 1')
+        raise ValueError('Risk distances must be between 0 and 1')
     entry_price = get_latest_price(symbol)
     stop_price = round(entry_price * (1 - stop_loss_pct), 2)
     take_profit_price = round(entry_price * (1 + take_profit_pct), 2)

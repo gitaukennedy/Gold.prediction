@@ -6,6 +6,7 @@ from src.fetch_data import fetch_history
 from src.features import make_features
 from src.model import train_and_save, load_model
 from src.trade import close_position, get_position, place_bracket_buy
+from src.risk import build_risk_plan, markov_monte_carlo
 
 load_dotenv()
 
@@ -76,9 +77,10 @@ def main():
     minimum_win_rate = float(os.getenv('MINIMUM_WIN_RATE', '0.52'))
     trading_enabled = os.getenv('ENABLE_TRADING', 'false').lower() == 'true'
     symbol = os.getenv('TRADE_SYMBOL', 'GLD')
-    stop_loss_pct = float(os.getenv('STOP_LOSS_PCT', '0.01'))
-    take_profit_pct = float(os.getenv('TAKE_PROFIT_PCT', '0.02'))
     latest_price = float(df['Close'].iloc[-1])
+    risk_lookback = int(os.getenv('RISK_LOOKBACK_BARS', '20'))
+    simulation_horizon = int(os.getenv('SIMULATION_HORIZON_BARS', '5'))
+    monte_carlo = markov_monte_carlo(df, horizon=simulation_horizon)
     action = 'HOLD'
     if buy_probability > buy_threshold and buy_win_rate >= minimum_win_rate:
         action = 'BUY' if trading_enabled else 'BUY BLOCKED'
@@ -86,6 +88,8 @@ def main():
         action = 'BUY REJECTED'
     elif sell_probability > sell_threshold:
         action = 'SELL' if trading_enabled else 'SELL BLOCKED'
+    direction = 'CALL' if buy_probability >= sell_probability else 'PUT'
+    risk_plan = build_risk_plan(df, direction, interval, risk_lookback)
     prediction_table = pd.DataFrame([{
         'run_time': pd.Timestamp.now(tz='UTC').isoformat(),
         'bar_time': df.index[-1],
@@ -98,8 +102,13 @@ def main():
         'sell_probability': f'{sell_probability:.1%}',
         'buy_win_rate': f'{buy_win_rate:.1%}',
         'action': action,
-        'stop_loss': round(latest_price * (1 - stop_loss_pct), 2),
-        'take_profit': round(latest_price * (1 + take_profit_pct), 2),
+        'signal_direction': direction,
+        'range_stop_loss': round(risk_plan['stop'], 2),
+        'range_take_profit': round(risk_plan['target'], 2),
+        'atr': round(risk_plan['atr'], 4),
+        'monte_carlo_up_probability': f"{monte_carlo['up_probability']:.1%}",
+        'monte_carlo_p05_return': f"{monte_carlo['p05_return']:.2%}",
+        'monte_carlo_p95_return': f"{monte_carlo['p95_return']:.2%}",
     }])
     os.makedirs('data', exist_ok=True)
     history_path = 'data/prediction_history.csv'
@@ -116,6 +125,10 @@ def main():
     print(f'Buy probability:  {buy_probability:.3f} (threshold: {buy_threshold:.3f})')
     print(f'Sell probability: {sell_probability:.3f} (threshold: {sell_threshold:.3f})')
     print(f'Minimum validation win rate: {minimum_win_rate:.1%}')
+    print(f"Markov Monte Carlo ({simulation_horizon} bars): up {monte_carlo['up_probability']:.1%}, "
+          f"5-95% return {monte_carlo['p05_return']:.2%} to {monte_carlo['p95_return']:.2%}")
+    print(f"{direction} range plan ({interval}; ATR {risk_plan['atr']:.4f}): "
+          f"stop {risk_plan['stop']:.2f}, target {risk_plan['target']:.2f}")
     print(f'Trading enabled: {trading_enabled}')
     if buy_probability > buy_threshold and buy_win_rate >= minimum_win_rate:
         qty = int(os.getenv('TRADE_QTY', '1'))
@@ -124,7 +137,8 @@ def main():
             print('Order blocked: set ENABLE_TRADING=true after reviewing the signal.')
             return
         try:
-            resp = place_bracket_buy(symbol, qty)
+            resp = place_bracket_buy(symbol, qty, risk_plan['stop_distance_pct'],
+                                     risk_plan['target_distance_pct'])
             print('Order response:', resp)
         except Exception as e:
             print('Order failed:', e)

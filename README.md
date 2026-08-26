@@ -1,6 +1,6 @@
 # Gold prediction and Alpaca trading MVP
 
-This project fetches recent one-minute gold-market data, creates short-term price features, trains a small Random Forest classifier, reports the probability that the next bar will rise or fall, and can submit an Alpaca order when the buy probability passes a configured threshold.
+This project fetches recent gold-market data, creates causal price/range/volatility features, and trains a leakage-aware Random Forest-to-XGBoost stacked classifier. It also reports a Markov/Monte Carlo range scenario and uses the current candle timeframe's ATR and recent high/low range to create exits.
 
 
 # It is a proof of concept, not a validated trading strategy. The model does not account for spread, slippage, commissions, market hours, position size, portfolio exposure, stop losses, or drawdown. Use paper trading first and review every signal yourself. naitengeneza bado , 
@@ -16,7 +16,7 @@ yfinance (GC=F) -> data/latest.csv
 		  feature creation
 			  |
 			  v
-	  RandomForest train/save/load
+	RandomForest out-of-fold probability -> XGBoost train/save/load
 			  |
 			  v
 	    buy/sell probability report
@@ -30,11 +30,12 @@ The default market-data ticker is `GC=F` (COMEX gold futures). The default order
 
 ### Application code
 
-- `main.py`: Application orchestrator. Loads `.env`, fetches two days of one-minute data, prints the latest 20 rows, creates features and labels, trains on the latest 500 usable rows, loads `models/rf.pkl`, prints class probabilities, and submits a market buy when the buy probability is greater than `BUY_THRESHOLD`. Sell signals are reported but do not submit sell orders.
+- `main.py`: Application orchestrator. Loads `.env`, fetches data, trains on the latest 500 usable rows, reports stacked-model probabilities plus risk/simulation context, and only submits a buy when the configured checks pass.
 - `src/__init__.py`: Package marker for the `src` Python package.
 - `src/fetch_data.py`: Calls `yfinance.Ticker.history()`, keeps `Open`, `High`, `Low`, `Close`, and `Volume`, removes missing rows, and writes `data/latest.csv` and `data/latest_20.csv`.
-- `src/features.py`: Computes percentage returns, five lagged returns, five-bar and 15-bar moving averages, and their ratio. The label is `1` when the next close is higher than the current close, otherwise `0`.
-- `src/model.py`: Creates a 50-tree `RandomForestClassifier`, fits it, saves it with `joblib` to `models/rf.pkl`, and provides the matching loader.
+- `src/features.py`: Computes lagged returns, trend, ATR percentage, range position, realised volatility, and volume ratio. The label is `1` when the next close is higher than the current close, otherwise `0`.
+- `src/model.py`: Fits a Random Forest, creates chronological out-of-fold Random Forest probabilities, and uses those as an additive feature for XGBoost. The saved model is `models/stacked_rf_xgb.pkl`.
+- `src/risk.py`: Makes timeframe-aware CALL/PUT risk plans from a 14-bar ATR and the recent support/resistance range, and produces a three-state Markov Monte Carlo scenario.
 - `src/trade.py`: Builds an Alpaca `TradingClient` from environment credentials and submits market orders. The base URL determines paper versus live mode; the default is Alpaca paper trading.
 
 ### Configuration and operations
@@ -42,6 +43,7 @@ The default market-data ticker is `GC=F` (COMEX gold futures). The default order
 - `config.example.env`: Safe configuration template. Copy it to `.env`; never commit real keys.
 - `requirements.txt`: Pinned or bounded Python dependencies: yfinance, pandas, scikit-learn, joblib, alpaca-py, and python-dotenv.
 - `scripts/run_mvp.bat`: Windows helper that installs dependencies and runs `main.py`. Git Bash users can run the equivalent commands shown below.
+- `scripts/run_mvp.sh`: Git Bash helper that creates/uses `.venv`, installs requirements, and runs the predictor.
 - `.gitignore`: Excludes secrets, virtual environments, Python cache files, and generated model files from Git.
 - `commitmsg.txt`: Text used as a commit-message note; it is not needed to run the application.
 
@@ -79,7 +81,57 @@ Run the predictor with:
 python main.py
 ```
 
+Or use the Git Bash helper, which creates the virtual environment and installs
+the dependencies before running it:
+
+```bash
+bash scripts/run_mvp.sh
+```
+
+If XGBoost needs to be installed separately, activate the environment first,
+then run:
+
+```bash
+source .venv/Scripts/activate
+python -m pip install "xgboost>=2.1,<3"
+```
+
 The script needs network access to Yahoo Finance. It needs valid Alpaca paper credentials only when a buy signal passes the threshold, because that is when `place_order()` is called.
+
+## Model, simulation, and exit logic
+
+The model is a chronological stacked ensemble. A Random Forest first produces
+out-of-fold up probabilities; XGBoost receives those probabilities as one
+additional feature alongside returns, trend, ATR, volatility, range position,
+and volume features. Out-of-fold construction is important: the second-stage
+model does not receive a Random Forest prediction trained on the same target.
+
+Each run also estimates a three-state (down/neutral/up) Markov transition
+matrix from recent returns and samples 3,000 Monte Carlo paths over
+`SIMULATION_HORIZON_BARS`. Its probability and 5th/95th percentile returns are
+context only; they do not guarantee a trade outcome.
+
+For a CALL signal, the stop is below both an ATR buffer and recent support, and
+the target is at least an ATR projection or recent resistance. A PUT plan uses
+the inverse levels. When `TICKER` and `TRADE_SYMBOL` differ (for example
+`GC=F` and `GLD`), the program transfers only the stop/target *percentage
+distance* to the live quote. It never sends a futures price as an ETF exit.
+
+## Paper-trading authorization
+
+Keep credentials in a local, git-ignored `.env` file in this project folder.
+For a paper-only order, the configuration must include:
+
+```dotenv
+ALPACA_BASE_URL=https://paper-api.alpaca.markets
+ENABLE_TRADING=true
+TRADE_SYMBOL=GLD
+TRADE_QTY=1
+```
+
+Do not put a credential file in Git or paste its values into chat. The script
+will still refuse a duplicate long position and will print the risk plan before
+submitting a qualifying order.
 
 ## Configuration reference
 
@@ -101,6 +153,8 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 | `ENABLE_TRADING` | `false` | Must be `true` before any order can be submitted |
 | `STOP_LOSS_PCT` | `0.01` | Bracket stop loss below the estimated entry price |
 | `TAKE_PROFIT_PCT` | `0.02` | Bracket take profit above the estimated entry price |
+| `RISK_LOOKBACK_BARS` | `20` | Number of candles used for support/resistance exits |
+| `SIMULATION_HORIZON_BARS` | `5` | Number of timeframe bars sampled per Markov/Monte Carlo path |
 
 ## What one run does
 
@@ -111,9 +165,9 @@ The script needs network access to Yahoo Finance. It needs valid Alpaca paper cr
 5. Measures historical accuracy and the win rate of the model's historical buy predictions on that unseen portion.
 6. Predicts the latest available feature row, which was excluded from training.
 7. Appends the prediction to `data/prediction_history.csv`.
-8. If buy probability and historical predicted-buy win rate pass their thresholds, and `ENABLE_TRADING=true`, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY` with attached stop-loss and take-profit exits. Otherwise it does not submit an order.
+8. Produces a CALL/PUT directional label, a Markov/Monte Carlo five-bar distribution, and a range exit plan based on the selected timeframe. If buy probability and historical predicted-buy win rate pass their thresholds, and `ENABLE_TRADING=true`, sends a market buy for `TRADE_SYMBOL` and `TRADE_QTY` with attached stop-loss and take-profit exits. The exit *distance* is transferred to the current order quote; it never copies a futures price directly into a GLD order.
 
-The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. The program now refuses duplicate buys, attaches a bracket stop loss and take profit to each accepted buy, and closes an existing position on a validated sell signal. A high probability is not a guarantee of profit. The bracket exits are based on the latest quote before the market order fills, so actual fill prices can differ.
+The validation metric is a small recent holdout, not a full backtest, and cannot guarantee future performance. A CALL/PUT label is a market-direction label, not an options order instruction: this MVP still trades the configured equity/ETF symbol. The program refuses duplicate buys, attaches a bracket stop loss and take profit to each accepted buy, and closes an existing position on a validated sell signal. A high probability or a Monte Carlo result is not a guarantee of profit. The bracket exits are based on the latest quote before the market order fills, so actual fill prices can differ.
 
 ## Trading safely
 
