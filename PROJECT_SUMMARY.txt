@@ -1,6 +1,6 @@
 ╔═══════════════════════════════════════════════════════════════════════════════╗
 ║                                                                               ║
-║          🏆 GOLD TRADING PREDICTION SYSTEM - PROJECT COMPLETE 🏆            ║
+║           GOLD TRADING PREDICTION SYSTEM - PROJECT COMPLETE          ║
 ║                                                                               ║
 ║                      Ready for Immediate Execution                           ║
 ║                                                                               ║
@@ -11,7 +11,7 @@
 
 gold-trading-project/
 │
-├── 🐍 PYTHON MODULES (src/)
+├──  PYTHON MODULES (src/)
 │   ├── __init__.py ......................... Package marker
 │   ├── data_fetcher.py ..................... Fetch live gold prices from Yahoo Finance
 │   ├── data_processor.py ................... Calculate 15+ technical indicators
@@ -19,10 +19,10 @@ gold-trading-project/
 │   ├── predictor.py ........................ Generate BUY/SELL/HOLD signals
 │   └── trader.py ........................... Execute trades & manage portfolio
 │
-├── 🎯 MAIN ORCHESTRATOR
+├──  MAIN ORCHESTRATOR
 │   └── main.py ............................. Complete end-to-end pipeline
 │
-├── 📚 DOCUMENTATION & CONFIGURATION
+├──  DOCUMENTATION & CONFIGURATION
 │   ├── README.md ........................... Comprehensive guide (50+ pages)
 │   ├── requirements.txt .................... Python dependencies
 │   ├── EXECUTION_TIMELINE.txt .............. Minute-by-minute breakdown
@@ -36,7 +36,7 @@ gold-trading-project/
 │
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-📊 SYSTEM ARCHITECTURE:
+ SYSTEM ARCHITECTURE:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
                           GOLD TRADING PIPELINE
@@ -296,7 +296,7 @@ For Better Accuracy:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-⚠️  IMPORTANT NOTES:
+  IMPORTANT NOTES:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 1. INTERNET REQUIRED

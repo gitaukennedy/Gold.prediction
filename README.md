@@ -1,5 +1,5 @@
 # Gold prediction and Alpaca trading MVP
-
+REACH OUT  TO ME AT MY EMAIL FOR MORE QUANTITATIVE LIVE ANALYSIS
 This project fetches recent gold-market data, creates causal price/range/volatility features, and trains a leakage-aware Random Forest-to-XGBoost stacked classifier. It also reports a Markov/Monte Carlo range scenario and uses the current candle timeframe's ATR and recent high/low range to create exits.
 
 
