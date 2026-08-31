@@ -24,7 +24,7 @@ yfinance (GC=F) -> data/latest.csv
 	    buy signal only -> Alpaca
 ```
 
-The default market-data ticker is `GC=F` (COMEX gold futures). The default order symbol is `GLD` (the SPDR Gold Shares ETF); these are different instruments and are not interchangeable. Change them only after confirming that the symbol is supported by the configured Alpaca account.
+The default market-data ticker is `GC=F` (COMEX gold futures). The default order symbol is `GLD` (the SPDR Gold Shares ETF); these are different instruments and are not interchangeable. `XAUUSD=X` can be added through `ADDITIONAL_PREDICTION_TICKERS` to generate an independent spot-gold forecast with the same model settings. Additional tickers are prediction-only and never submit an Alpaca order. Yahoo Finance must supply the ticker's intraday OHLCV data; if it does not, the program reports the unavailable feed and creates no forecast rather than substituting COMEX futures for spot gold.
 
 ## Repository files
 
@@ -32,7 +32,7 @@ The default market-data ticker is `GC=F` (COMEX gold futures). The default order
 
 - `main.py`: Application orchestrator. Loads `.env`, fetches data, trains on the latest 500 usable rows, reports stacked-model probabilities plus risk/simulation context, and only submits a buy when the configured checks pass.
 - `src/__init__.py`: Package marker for the `src` Python package.
-- `src/fetch_data.py`: Calls `yfinance.Ticker.history()`, keeps `Open`, `High`, `Low`, `Close`, and `Volume`, removes missing rows, and writes `data/latest.csv` and `data/latest_20.csv`.
+- `src/fetch_data.py`: Calls `yfinance.Ticker.history()`, keeps `Open`, `High`, `Low`, `Close`, and `Volume`, removes missing rows, and writes separate `data/latest_<ticker>.csv` and `data/latest_20_<ticker>.csv` snapshots.
 - `src/features.py`: Computes lagged returns, trend, ATR percentage, range position, realised volatility, and volume ratio. The label is `1` when the next close is higher than the current close, otherwise `0`.
 - `src/model.py`: Fits a Random Forest, creates chronological out-of-fold Random Forest probabilities, and uses those as an additive feature for XGBoost. The saved model is `models/stacked_rf_xgb.pkl`.
 - `src/risk.py`: Makes timeframe-aware CALL/PUT risk plans from a 14-bar ATR and the recent support/resistance range, and produces a three-state Markov Monte Carlo scenario.
@@ -145,6 +145,7 @@ submitting a qualifying order.
 | `ALPACA_SECRET_KEY` / `APCA_API_SECRET_KEY` | none | Alpaca secret |
 | `ALPACA_BASE_URL` / `APCA_API_BASE_URL` | paper URL | Paper or live Alpaca endpoint |
 | `TICKER` | `GC=F` | yfinance data ticker |
+| `ADDITIONAL_PREDICTION_TICKERS` | `XAUUSD=X` | Optional comma-separated Yahoo Finance tickers forecast with the same settings; prediction-only, never traded |
 | `DATA_INTERVAL` | `1m` | Candle timeframe used for features and prediction; current default is one minute |
 | `DATA_PERIOD` | `2d` | History downloaded for training |
 | `MARKET_DATA_MAX_AGE_MINUTES` | `30` | Maximum age of the newest downloaded bar before prediction and trading are skipped |

@@ -11,8 +11,17 @@ from src.risk import build_risk_plan, markov_monte_carlo
 load_dotenv()
 
 
-def main():
-    ticker = os.getenv('TICKER', 'GC=F')
+def _safe_name(value: str) -> str:
+    return ''.join(character if character.isalnum() else '_' for character in value)
+
+
+def _additional_tickers() -> list[str]:
+    """Read optional, comma-separated prediction-only market tickers."""
+    return [ticker.strip() for ticker in os.getenv('ADDITIONAL_PREDICTION_TICKERS', '').split(',')
+            if ticker.strip()]
+
+
+def run_prediction(ticker: str, allow_trading: bool):
     interval = os.getenv('DATA_INTERVAL', '1m')
     period = os.getenv('DATA_PERIOD', '2d')
     print(f'Fetching {interval} data for {ticker}...')
@@ -33,14 +42,14 @@ def main():
     if data_age_minutes > max_age_minutes:
         print(f'Latest market bar is {data_age_minutes:.1f} minutes old; '
               'no current prediction or order created.')
-        return
+        return None
     print('\n=== LATEST DATA (20 ROWS) ===')
     print(df.tail(20).to_string(index=False))
-    print('Saved to data/latest_20.csv')
+    print(f'Saved to data/latest_20_{_safe_name(ticker)}.csv')
     X, y = make_features(df)
     if len(X) < 100:
         print('Not enough data to train. Need at least 100 rows of features.')
-        return
+        return None
     # Keep the newest row completely out of training so its prediction is unseen.
     samples = min(len(X), 500)
     X_recent = X.tail(samples)
@@ -48,12 +57,13 @@ def main():
     validation_size = max(20, int(len(X_recent) * 0.2))
     if len(X_recent) <= validation_size:
         print('Not enough data for a separate validation set.')
-        return
+        return None
     X_train = X_recent.iloc[:-validation_size]
     y_train = y_recent.iloc[:-validation_size]
     X_validation = X_recent.iloc[-validation_size:-1]
     y_validation = y_recent.iloc[-validation_size:-1]
-    clf = train_and_save(X_train, y_train)
+    model_path = f'models/stacked_rf_xgb_{_safe_name(ticker)}.pkl'
+    clf = train_and_save(X_train, y_train, model_path=model_path)
     validation_predictions = clf.predict(X_validation)
     validation_win_rate = accuracy_score(y_validation, validation_predictions)
     predicted_buys = validation_predictions == 1
@@ -66,7 +76,7 @@ def main():
           f'({len(y_validation)} unseen predictions)')
     print(f'Predicted-buy win rate: {buy_win_rate:.1%} '
           f'({predicted_buys.sum()} historical buy signals)')
-    model = load_model()
+    model = load_model(model_path)
     latest = X.tail(1)
     probabilities = model.predict_proba(latest)[0]
     class_probabilities = dict(zip(model.classes_, probabilities))
@@ -75,7 +85,7 @@ def main():
     buy_threshold = float(os.getenv('BUY_THRESHOLD', '0.55'))
     sell_threshold = float(os.getenv('SELL_THRESHOLD', '0.55'))
     minimum_win_rate = float(os.getenv('MINIMUM_WIN_RATE', '0.52'))
-    trading_enabled = os.getenv('ENABLE_TRADING', 'false').lower() == 'true'
+    trading_enabled = allow_trading and os.getenv('ENABLE_TRADING', 'false').lower() == 'true'
     symbol = os.getenv('TRADE_SYMBOL', 'GLD')
     latest_price = float(df['Close'].iloc[-1])
     risk_lookback = int(os.getenv('RISK_LOOKBACK_BARS', '20'))
@@ -96,7 +106,7 @@ def main():
         'data_timeframe': interval,
         'prediction_horizon': f'next {interval} bar',
         'data_ticker': ticker,
-        'trade_symbol': symbol,
+        'trade_symbol': symbol if allow_trading else 'PREDICTION ONLY',
         'last_close': round(latest_price, 2),
         'buy_probability': f'{buy_probability:.1%}',
         'sell_probability': f'{sell_probability:.1%}',
@@ -159,6 +169,22 @@ def main():
             print('Close failed:', e)
     else:
         print('No buy or sell signal passed its threshold.')
+    return prediction_table
+
+
+def main():
+    primary_ticker = os.getenv('TICKER', 'GC=F')
+    run_prediction(primary_ticker, allow_trading=True)
+    for ticker in _additional_tickers():
+        if ticker == primary_ticker:
+            continue
+        print(f'\n=== ADDITIONAL PREDICTION: {ticker} (NO ORDER SUBMISSION) ===')
+        try:
+            run_prediction(ticker, allow_trading=False)
+        except Exception as error:
+            # A failed supplemental feed must not interrupt the original
+            # COMEX/GLD flow or cause an order attempt for that instrument.
+            print(f'Additional prediction for {ticker} failed: {error}')
 
 
 if __name__ == '__main__':
